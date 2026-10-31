@@ -1,0 +1,56 @@
+name: Build iOS IPA (unsigned, for TrollStore)
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: "Debug (faster, matches README) or Release (AOT, 20-40 min)"
+        default: "Debug"
+        type: choice
+        options: [Debug, Release]
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Show Xcode
+        run: |
+          xcodebuild -version
+          ls /Applications | grep -i xcode || true
+
+      - name: Install iOS workload
+        run: dotnet workload install maui-ios
+
+      - name: Restore
+        run: dotnet restore OpenUtauMobile/OpenUtauMobile.csproj -p:TargetFramework=net9.0-ios
+
+      - name: Build (no code signing)
+        run: |
+          dotnet build OpenUtauMobile/OpenUtauMobile.csproj \
+            -f net9.0-ios \
+            -c ${{ inputs.configuration }} \
+            -p:RuntimeIdentifier=ios-arm64 \
+            -p:TargetFrameworks=net9.0-ios \
+            -p:EnableCodeSigning=false \
+            -p:CodesignRequireProvisioningProfile=false
+
+      - name: Package unsigned IPA
+        run: |
+          APP=$(find OpenUtauMobile/bin -type d -name "*.app" | head -n 1)
+          echo "Found app bundle: $APP"
+          rm -rf Payload && mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry OpenUtauMobile-unsigned.ipa Payload
+          ls -lh OpenUtauMobile-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenUtauMobile-ios-ipa
+          path: OpenUtauMobile-unsigned.ipa
