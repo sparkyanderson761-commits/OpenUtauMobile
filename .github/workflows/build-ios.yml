@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
@@ -21,10 +21,7 @@ jobs:
           dotnet-version: "9.0.x"
 
       - name: Show Xcode
-        run: |
-          xcodebuild -version
-          ls /Applications | grep -i xcode || true
-
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)" && xcodebuild -version
       - name: Install iOS workload
         run: dotnet workload install maui-ios
 
